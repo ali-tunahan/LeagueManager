@@ -1,0 +1,49 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+*.coverprofile
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Go module files
+go.sum
+
+# Logs
+*.log
+
+# IDE/editor specific files
+.idea/
+.vscode/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Database config files
+*.db-journal
+*.db-shm
+*.db-wal
+
+# macOS specific files
+.DS_Store
+
+# Node.js dependency directory (if applicable)
+node_modules/
+
+# Env files
+.env
+
+# Temporary files
+*.tmp
+*.swp
