@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 )
 
@@ -17,5 +18,8 @@ func main() {
 	})
 
 	// Start the server
-	r.Run()
+	err := r.Run()
+	if err != nil {
+		log.Fatalf("Failed to run server: %v", err)
+	}
 }
