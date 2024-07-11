@@ -1,0 +1,23 @@
+//go:build wireinject
+// +build wireinject
+
+package internal
+
+import (
+	"LeagueManager/internal/application/services"
+	"LeagueManager/internal/domain/repositories"
+	"LeagueManager/internal/infrastructure/config"
+	"LeagueManager/internal/presentation/controllers"
+	"github.com/google/wire"
+)
+
+func Init() (*config.Initialization, error) {
+	wire.Build(
+		config.ConnectToDB,
+		repositories.NewTeamRepository,
+		services.NewTeamService,
+		controllers.NewTeamController,
+		config.NewInitialization,
+	)
+	return &config.Initialization{}, nil
+}

@@ -1,25 +1,26 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"log"
-	"net/http"
+	"LeagueManager/internal"
+	"LeagueManager/internal/infrastructure/config"
+	"LeagueManager/internal/infrastructure/router"
+	"github.com/joho/godotenv"
+	"os"
 )
 
+func init() {
+	godotenv.Load()
+	config.InitLog()
+}
+
 func main() {
-	// Initialize Gin router
-	r := gin.Default()
-
-	//  Simple demo endpoint
-	r.GET("/demo", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "OK",
-		})
-	})
-
-	// Start the server
-	err := r.Run()
-	if err != nil {
-		log.Fatalf("Failed to run server: %v", err)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
+
+	init, _ := internal.Init()
+	app := router.Init(init)
+
+	app.Run(":" + port)
 }
