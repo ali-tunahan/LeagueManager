@@ -1,8 +1,10 @@
 package models
 
+import "gorm.io/gorm"
+
 // Standings represents the standings of a team in a specific league
 type Standings struct {
-	ID             uint `json:"id" gorm:"primaryKey"`
+	gorm.Model
 	LeagueID       uint `json:"league_id"`
 	TeamID         uint `json:"team_id"`
 	Points         int  `json:"points"`
