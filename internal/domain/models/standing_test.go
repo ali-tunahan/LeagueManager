@@ -11,7 +11,7 @@ func TestStandingsModel(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	err = db.AutoMigrate(&Standings{}, &League{}, &Team{})
+	err = db.AutoMigrate(&Standing{}, &League{}, &Team{})
 	assert.NoError(t, err)
 
 	// Create Team
@@ -22,8 +22,8 @@ func TestStandingsModel(t *testing.T) {
 	league := &League{Name: "Premier League", CurrentWeek: 1}
 	db.Create(league)
 
-	// Create Standings
-	standings := &Standings{
+	// Create Standing
+	standings := &Standing{
 		LeagueID:       league.ID,
 		TeamID:         team.ID,
 		Points:         10,
@@ -38,7 +38,7 @@ func TestStandingsModel(t *testing.T) {
 	assert.NotZero(t, standings.ID)
 
 	// Read
-	var readStandings Standings
+	var readStandings Standing
 	err = db.First(&readStandings, standings.ID).Error
 	assert.NoError(t, err)
 	assert.Equal(t, standings.Points, readStandings.Points)
@@ -49,16 +49,16 @@ func TestStandingsModel(t *testing.T) {
 	err = db.Save(&readStandings).Error
 	assert.NoError(t, err)
 
-	var updatedStandings Standings
+	var updatedStandings Standing
 	err = db.First(&updatedStandings, standings.ID).Error
 	assert.NoError(t, err)
 	assert.Equal(t, 12, updatedStandings.Points)
 
 	// Delete
-	err = db.Delete(&Standings{}, standings.ID).Error
+	err = db.Delete(&Standing{}, standings.ID).Error
 	assert.NoError(t, err)
 
-	var deletedStandings Standings
+	var deletedStandings Standing
 	err = db.First(&deletedStandings, standings.ID).Error
 	assert.Error(t, err)
 }
