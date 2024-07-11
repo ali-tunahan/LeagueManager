@@ -10,3 +10,9 @@ type League struct {
 	Matches     []Match    `json:"matches" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Standings   []Standing `json:"standings" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
+
+const TotalWeeks = 38 // TODO refactor into a constants file
+
+func (l *League) IsActive() bool {
+	return l.CurrentWeek > 0 && l.CurrentWeek <= TotalWeeks
+}
