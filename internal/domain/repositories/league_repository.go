@@ -27,7 +27,7 @@ func (r *LeagueRepositoryImpl) CreateLeague(league *models.League) error {
 
 func (r *LeagueRepositoryImpl) GetLeagueByID(id uint) (*models.League, error) {
 	var league *models.League
-	err := r.db.Preload("Teams").First(&league, id).Error
+	err := r.db.Preload("Teams").Preload("Matches").Preload("Standing").First(&league, id).Error
 	return league, err
 }
 
@@ -41,6 +41,6 @@ func (r *LeagueRepositoryImpl) DeleteLeague(id uint) error {
 
 func (r *LeagueRepositoryImpl) GetAllLeagues() ([]*models.League, error) {
 	var leagues []*models.League
-	err := r.db.Preload("Teams").Preload("Matches").Preload("Standing").Find(&leagues).Error
+	err := r.db.Find(&leagues).Error
 	return leagues, err
 }
