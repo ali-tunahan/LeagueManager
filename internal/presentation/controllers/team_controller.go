@@ -17,7 +17,7 @@ func NewTeamController(service services.TeamService) *TeamController {
 }
 
 func (ctrl *TeamController) AddTeam(c *gin.Context) {
-	var team models.Team
+	var team *models.Team
 	if err := c.ShouldBindJSON(&team); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -40,7 +40,7 @@ func (ctrl *TeamController) GetTeamByID(c *gin.Context) {
 }
 
 func (ctrl *TeamController) UpdateTeam(c *gin.Context) {
-	var team models.Team
+	var team *models.Team
 	if err := c.ShouldBindJSON(&team); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
