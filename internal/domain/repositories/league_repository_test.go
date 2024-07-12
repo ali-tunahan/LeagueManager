@@ -1,57 +1,49 @@
-package repositories
+package repositories_test
 
 import (
 	"LeagueManager/internal/domain/models"
+	"LeagueManager/internal/domain/repositories"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"testing"
 )
 
 func TestLeagueRepository(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	err = db.AutoMigrate(&models.League{}, &models.Team{})
+	err = db.AutoMigrate(&models.League{}, &models.Team{}, &models.Match{}, &models.Standing{})
 	assert.NoError(t, err)
 
-	repo := NewLeagueRepository(db)
+	repo := repositories.NewLeagueRepository(db)
 
-	// Create league
-	league := &models.League{Name: "Premier League", CurrentWeek: 0}
+	// Create
+	league := &models.League{Name: "Premier League", CurrentWeek: 1}
 	err = repo.CreateLeague(league)
 	assert.NoError(t, err)
 	assert.NotZero(t, league.ID)
 
-	// Add teams to league
-	teamA := &models.Team{Name: "Team A", AttackStrength: 80, DefenseStrength: 70}
-	teamB := &models.Team{Name: "Team B", AttackStrength: 75, DefenseStrength: 65}
-	err = db.Create(&teamA).Error
-	assert.NoError(t, err)
-	err = db.Create(&teamB).Error
-	assert.NoError(t, err)
-
-	league.Teams = []models.Team{*teamA, *teamB}
-	err = repo.UpdateLeague(league)
-	assert.NoError(t, err)
-
-	// Get leagues by team ID
-	leagues, err := repo.GetLeaguesByTeamID(teamA.ID)
-	assert.NoError(t, err)
-	assert.Len(t, leagues, 1)
-	assert.Equal(t, "Premier League", leagues[0].Name)
-
-	// Get league by ID
+	// Read
 	readLeague, err := repo.GetLeagueByID(league.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, league.Name, readLeague.Name)
+	assert.Equal(t, league.CurrentWeek, readLeague.CurrentWeek)
 
-	// Update league
-	readLeague.CurrentWeek = 1
+	// Update
+	readLeague.CurrentWeek = 2
 	err = repo.UpdateLeague(readLeague)
 	assert.NoError(t, err)
 
-	// Delete league
+	updatedLeague, err := repo.GetLeagueByID(readLeague.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, updatedLeague.CurrentWeek)
+
+	// Delete
 	err = repo.DeleteLeague(league.ID)
 	assert.NoError(t, err)
+
+	_, err = repo.GetLeagueByID(league.ID)
+	assert.Error(t, err)
 }

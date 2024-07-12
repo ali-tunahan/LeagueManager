@@ -11,7 +11,6 @@ type LeagueRepository interface {
 	UpdateLeague(league *models.League) error
 	DeleteLeague(id uint) error
 	GetAllLeagues() ([]*models.League, error)
-	GetLeaguesByTeamID(teamID uint) ([]*models.League, error)
 }
 
 type LeagueRepositoryImpl struct {
@@ -42,16 +41,6 @@ func (r *LeagueRepositoryImpl) DeleteLeague(id uint) error {
 
 func (r *LeagueRepositoryImpl) GetAllLeagues() ([]*models.League, error) {
 	var leagues []*models.League
-	err := r.db.Preload("Teams").Find(&leagues).Error
-	return leagues, err
-}
-
-func (r *LeagueRepositoryImpl) GetLeaguesByTeamID(teamID uint) ([]*models.League, error) {
-	var leagues []*models.League
-
-	// Joins the league_teams table to the leagues table and filters by the team ID
-	err := r.db.Joins("JOIN league_teams ON league_teams.league_id = leagues.id").
-		Where("league_teams.team_id = ?", teamID).
-		Find(&leagues).Error
+	err := r.db.Preload("Teams").Preload("Matches").Preload("Standing").Find(&leagues).Error
 	return leagues, err
 }
