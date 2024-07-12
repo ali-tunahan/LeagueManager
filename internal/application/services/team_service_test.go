@@ -13,11 +13,13 @@ func TestTeamService(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	err = db.AutoMigrate(&models.Team{})
+	err = db.AutoMigrate(&models.Team{}, &models.League{})
 	assert.NoError(t, err)
 
 	repo := repositories.NewTeamRepository(db)
-	service := NewTeamService(repo)
+	repoLeague := repositories.NewLeagueRepository(db)
+
+	service := NewTeamService(repo, repoLeague)
 
 	// Create
 	team := &models.Team{Name: "Team A", AttackStrength: 80, DefenseStrength: 70}

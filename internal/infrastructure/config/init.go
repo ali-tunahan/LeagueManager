@@ -7,19 +7,29 @@ import (
 )
 
 type Initialization struct {
-	TeamRepo repositories.TeamRepository
+	TeamRepo     repositories.TeamRepository
+	LeagueRepo   repositories.LeagueRepository
+	StandingRepo repositories.StandingRepository
+	MatchRepo    repositories.MatchRepository
+
 	TeamSvc  services.TeamService
 	TeamCtrl *controllers.TeamController
 }
 
 func NewInitialization(
 	teamRepo repositories.TeamRepository,
+	leagueRepo repositories.LeagueRepository,
+	standingRepo repositories.StandingRepository,
+	matchRepo repositories.MatchRepository,
 	teamSvc services.TeamService,
 	teamCtrl *controllers.TeamController,
 ) *Initialization {
 	return &Initialization{
-		TeamRepo: teamRepo,
-		TeamSvc:  teamSvc,
-		TeamCtrl: teamCtrl,
+		TeamRepo:     teamRepo,
+		LeagueRepo:   leagueRepo,
+		StandingRepo: standingRepo,
+		MatchRepo:    matchRepo,
+		TeamSvc:      teamSvc,
+		TeamCtrl:     teamCtrl,
 	}
 }
