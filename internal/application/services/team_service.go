@@ -3,6 +3,7 @@ package services
 import (
 	"LeagueManager/internal/domain/models"
 	"LeagueManager/internal/domain/repositories"
+	"errors"
 )
 
 type TeamService interface {
@@ -14,29 +15,50 @@ type TeamService interface {
 }
 
 type TeamServiceImpl struct {
-	repo repositories.TeamRepository
+	teamRepo   repositories.TeamRepository
+	leagueRepo repositories.LeagueRepository
 }
 
-func NewTeamService(repo repositories.TeamRepository) TeamService {
-	return &TeamServiceImpl{repo: repo}
+func NewTeamService(teamRepo repositories.TeamRepository, leagueRepo repositories.LeagueRepository) TeamService {
+	return &TeamServiceImpl{teamRepo: teamRepo, leagueRepo: leagueRepo}
 }
 
 func (s *TeamServiceImpl) CreateTeam(team *models.Team) error {
-	return s.repo.CreateTeam(team)
+	return s.teamRepo.CreateTeam(team)
 }
 
 func (s *TeamServiceImpl) GetTeamByID(id uint) (*models.Team, error) {
-	return s.repo.GetTeamByID(id)
+	return s.teamRepo.GetTeamByID(id)
 }
 
 func (s *TeamServiceImpl) UpdateTeam(team *models.Team) error {
-	return s.repo.UpdateTeam(team)
+	return s.teamRepo.UpdateTeam(team)
 }
 
 func (s *TeamServiceImpl) DeleteTeam(id uint) error {
-	return s.repo.DeleteTeam(id)
+	leagues, err := s.leagueRepo.GetLeaguesByTeamID(id)
+	if err != nil {
+		return err
+	}
+
+	for _, league := range leagues {
+		if league.IsActive() {
+			return errors.New("cannot delete team that is part of an active league")
+		}
+	}
+
+	return s.teamRepo.DeleteTeam(id)
 }
 
 func (s *TeamServiceImpl) GetAllTeams() ([]*models.Team, error) {
-	return s.repo.GetAllTeams()
+	return s.teamRepo.GetAllTeams()
+}
+
+func (s *TeamServiceImpl) GetTeamsByLeague(leagueID uint) ([]models.Team, error) {
+	league, err := s.leagueRepo.GetLeagueByID(leagueID)
+	if err != nil {
+		return nil, err
+	}
+
+	return league.Teams, nil
 }
