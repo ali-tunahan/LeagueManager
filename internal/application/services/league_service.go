@@ -20,7 +20,7 @@ type LeagueService interface {
 	RemoveTeamFromLeague(leagueID, teamID uint) error
 	AdvanceWeek(leagueID uint) error
 	ViewMatchResults(leagueID uint) ([]*models.Match, error)
-	EditMatchResults(updatedMatch *models.Match) error
+	EditMatchResults(matchID uint, updatedMatch *models.Match) error
 	PredictChampion(leagueID uint) ([]*dto.TeamPrediction, error)
 	PlayAllMatches(leagueID uint) error
 }
@@ -145,9 +145,8 @@ func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, er
 }
 
 // EditMatchResults allows the user to edit the match results and update the standings accordingly
-func (s *LeagueServiceImpl) EditMatchResults(updatedMatch *models.Match) error {
-	// Retrieve the existing match
-	matchID := updatedMatch.ID
+func (s *LeagueServiceImpl) EditMatchResults(matchID uint, updatedMatch *models.Match) error {
+	// Get the existing match
 	existingMatch, err := s.matchRepo.GetMatchByID(matchID)
 	if err != nil {
 		return err
