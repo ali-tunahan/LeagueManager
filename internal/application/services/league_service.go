@@ -16,8 +16,8 @@ type LeagueService interface {
 	AddTeamToLeague(leagueID, teamID uint) error
 	RemoveTeamFromLeague(leagueID, teamID uint) error
 	AdvanceWeek(leagueID uint) error
-	ViewMatchResults(leagueID uint) ([]models.Match, error)
-	EditMatchResults(leagueID, matchID uint, updatedMatch models.Match) error
+	ViewMatchResults(leagueID uint) ([]*models.Match, error)
+	EditMatchResults(leagueID, matchID uint, updatedMatch *models.Match) error
 	PredictChampion(leagueID uint) (models.Team, error)
 	PlayAllMatches(leagueID uint) error
 }
@@ -131,6 +131,11 @@ func (s *LeagueServiceImpl) AdvanceWeek(leagueID uint) error {
 	return s.leagueRepo.UpdateLeague(league)
 }
 
+func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 // playMatches simulates the matches for the current week
 func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, error) {
 	var matches []models.Match
@@ -175,12 +180,28 @@ func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, 
 	return matches, nil
 }
 
-func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]models.Match, error) {
-	//TODO implement me
-	panic("implement me")
+// Below are helper methods for simulating matches and updating standings
+
+// ViewMatchResults returns the match results for the current week
+func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, error) {
+	league, err := s.leagueRepo.GetLeagueByID(leagueID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !league.IsActive() {
+		return nil, errors.New("league is not active or has ended")
+	}
+
+	matches, err := s.matchRepo.GetMatchesByWeek(leagueID, league.CurrentWeek)
+	if err != nil {
+		return nil, err
+	}
+
+	return matches, nil
 }
 
-func (s *LeagueServiceImpl) EditMatchResults(leagueID, matchID uint, updatedMatch models.Match) error {
+func (s *LeagueServiceImpl) EditMatchResults(leagueID, matchID uint, updatedMatch *models.Match) error {
 	//TODO implement me
 	panic("implement me")
 }
@@ -189,13 +210,6 @@ func (s *LeagueServiceImpl) PredictChampion(leagueID uint) (models.Team, error) 
 	//TODO implement me
 	panic("implement me")
 }
-
-func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-// Below are helper methods for simulating matches and updating standings
 
 // simulateMatch simulates the result of a match based on teams' strengths
 func (s *LeagueServiceImpl) simulateMatch(homeTeam, awayTeam models.Team) (int, int) {

@@ -11,6 +11,7 @@ type MatchRepository interface {
 	UpdateMatch(match *models.Match) error
 	DeleteMatch(id uint) error
 	GetAllMatches() ([]*models.Match, error)
+	GetMatchesByWeek(leagueID uint, week int) ([]*models.Match, error)
 }
 
 type MatchRepositoryImpl struct {
@@ -42,5 +43,11 @@ func (r *MatchRepositoryImpl) DeleteMatch(id uint) error {
 func (r *MatchRepositoryImpl) GetAllMatches() ([]*models.Match, error) {
 	var matches []*models.Match
 	err := r.db.Find(&matches).Error
+	return matches, err
+}
+
+func (r *MatchRepositoryImpl) GetMatchesByWeek(leagueID uint, week int) ([]*models.Match, error) {
+	var matches []*models.Match
+	err := r.db.Where("league_id = ? AND week = ?", leagueID, week).Find(&matches).Error
 	return matches, err
 }
