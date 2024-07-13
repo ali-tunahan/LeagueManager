@@ -107,6 +107,10 @@ func (s *LeagueServiceImpl) AdvanceWeek(leagueID uint) error {
 		return err
 	}
 
+	if league.CurrentWeek > 37 { // TODO write a function inside league entity instead
+		return errors.New("league has already ended")
+	}
+
 	if len(league.Teams) != 4 {
 		return errors.New("league must have exactly 4 teams to advance")
 	}
@@ -127,9 +131,6 @@ func (s *LeagueServiceImpl) AdvanceWeek(leagueID uint) error {
 
 	// Advance the league week
 	league.CurrentWeek++
-	if league.CurrentWeek > 38 { // TODO write a function inside league entity instead
-		return errors.New("league has already ended")
-	}
 
 	return s.leagueRepo.UpdateLeague(league)
 }
