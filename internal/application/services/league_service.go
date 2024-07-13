@@ -115,21 +115,11 @@ func (s *LeagueServiceImpl) AdvanceWeek(leagueID uint) error {
 		return errors.New("league must have exactly 4 teams to advance")
 	}
 
-	// Play matches for the current week
-	matches, err := s.playMatches(league)
+	// Advance the league week
+	league, err = s.advanceLeague(league)
 	if err != nil {
 		return err
 	}
-
-	// Save match results
-	for _, match := range matches {
-		err := s.saveMatchResult(&match)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Advance the league week
 	league.CurrentWeek++
 
 	return s.leagueRepo.UpdateLeague(league)
@@ -222,6 +212,24 @@ func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
 }
 
 // Below are helper functions for simulating matches and calculating scores
+
+func (s *LeagueServiceImpl) advanceLeague(league *models.League) (*models.League, error) {
+	// Play matches for the current week
+	matches, err := s.playMatches(league)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save match results
+	for _, match := range matches {
+		err := s.saveMatchResult(&match)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return league, nil
+}
 
 func (s *LeagueServiceImpl) combineTeamsAndStandings(teams []models.Team, standings []models.Standing) ([]teamStanding, error) {
 	if len(standings) != 4 {
