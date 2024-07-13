@@ -13,6 +13,7 @@ type LeagueService interface {
 	UpdateLeague(league *models.League) error
 	DeleteLeague(id uint) error
 	GetAllLeagues() ([]*models.League, error)
+	GetLeaguesByTeamID(teamID uint) ([]*models.League, error)
 	AddTeamToLeague(leagueID, teamID uint) error
 	RemoveTeamFromLeague(leagueID, teamID uint) error
 	AdvanceWeek(leagueID uint) error
@@ -131,12 +132,61 @@ func (s *LeagueServiceImpl) AdvanceWeek(leagueID uint) error {
 	return s.leagueRepo.UpdateLeague(league)
 }
 
+// ViewMatchResults returns the match results for the current week
+func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, error) {
+	league, err := s.leagueRepo.GetLeagueByID(leagueID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !league.IsActive() {
+		return nil, errors.New("league is not active or has ended")
+	}
+
+	matches, err := s.matchRepo.GetMatchesByWeek(leagueID, league.CurrentWeek)
+	if err != nil {
+		return nil, err
+	}
+
+	return matches, nil
+}
+
+// EditMatchResults allows the user to edit the match results and update the standings accordingly
+func (s *LeagueServiceImpl) EditMatchResults(updatedMatch *models.Match) error {
+	// Retrieve the existing match
+	matchID := updatedMatch.ID
+	existingMatch, err := s.matchRepo.GetMatchByID(matchID)
+	if err != nil {
+		return err
+	}
+
+	// Update the match result
+	existingMatch.HomeTeamScore = updatedMatch.HomeTeamScore
+	existingMatch.AwayTeamScore = updatedMatch.AwayTeamScore
+
+	if err := s.matchRepo.UpdateMatch(existingMatch); err != nil {
+		return err
+	}
+
+	// Adjust standings
+	if err := s.updateTeamStandings(updatedMatch.LeagueID, existingMatch, updatedMatch); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *LeagueServiceImpl) PredictChampion(leagueID uint) (models.Team, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
 	//TODO implement me
 	panic("implement me")
 }
 
-// Below are helper methods for simulating matches and updating standings
+// Below are helper functions for simulating matches and calculating scores
 
 // playMatches simulates the matches for the current week
 func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, error) {
@@ -181,57 +231,6 @@ func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, 
 
 	return matches, nil
 }
-
-// ViewMatchResults returns the match results for the current week
-func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, error) {
-	league, err := s.leagueRepo.GetLeagueByID(leagueID)
-	if err != nil {
-		return nil, err
-	}
-
-	if !league.IsActive() {
-		return nil, errors.New("league is not active or has ended")
-	}
-
-	matches, err := s.matchRepo.GetMatchesByWeek(leagueID, league.CurrentWeek)
-	if err != nil {
-		return nil, err
-	}
-
-	return matches, nil
-}
-
-func (s *LeagueServiceImpl) PredictChampion(leagueID uint) (models.Team, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-// EditMatchResults allows the user to edit the match results and update the standings accordingly
-func (s *LeagueServiceImpl) EditMatchResults(updatedMatch *models.Match) error {
-	// Retrieve the existing match
-	matchID := updatedMatch.ID
-	existingMatch, err := s.matchRepo.GetMatchByID(matchID)
-	if err != nil {
-		return err
-	}
-
-	// Update the match result
-	existingMatch.HomeTeamScore = updatedMatch.HomeTeamScore
-	existingMatch.AwayTeamScore = updatedMatch.AwayTeamScore
-
-	if err := s.matchRepo.UpdateMatch(existingMatch); err != nil {
-		return err
-	}
-
-	// Adjust standings
-	if err := s.updateTeamStandings(updatedMatch.LeagueID, existingMatch, updatedMatch); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Below are helper functions for simulating matches and calculating scores
 
 // simulateMatch simulates the result of a match based on teams' strengths
 func (s *LeagueServiceImpl) simulateMatch(homeTeam, awayTeam models.Team) (int, int) {
