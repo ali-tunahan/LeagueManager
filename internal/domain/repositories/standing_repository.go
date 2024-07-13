@@ -11,6 +11,7 @@ type StandingRepository interface {
 	UpdateStanding(standing *models.Standing) error
 	DeleteStanding(id uint) error
 	GetAllStandings() ([]*models.Standing, error)
+	GetStandingByTeam(leagueID uint, teamID uint) (*models.Standing, error)
 }
 
 type StandingRepositoryImpl struct {
@@ -43,4 +44,14 @@ func (r *StandingRepositoryImpl) GetAllStandings() ([]*models.Standing, error) {
 	var standings []*models.Standing
 	err := r.db.Find(&standings).Error
 	return standings, err
+}
+
+func (r *StandingRepositoryImpl) GetStandingByTeam(leagueID uint, teamID uint) (*models.Standing, error) {
+	var standing *models.Standing
+
+	// query standings with leagueID and teamID matching the requested one
+	err := r.db.Where("league_id = ? AND team_id = ?", leagueID, teamID).
+		First(&standing).Error
+
+	return standing, err
 }
