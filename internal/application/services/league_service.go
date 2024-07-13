@@ -1,10 +1,12 @@
 package services
 
 import (
+	dto "LeagueManager/internal/domain/dtos"
 	"LeagueManager/internal/domain/models"
 	"LeagueManager/internal/domain/repositories"
 	"errors"
 	"math/rand"
+	"sort"
 )
 
 type LeagueService interface {
@@ -19,7 +21,7 @@ type LeagueService interface {
 	AdvanceWeek(leagueID uint) error
 	ViewMatchResults(leagueID uint) ([]*models.Match, error)
 	EditMatchResults(updatedMatch *models.Match) error
-	PredictChampion(leagueID uint) (models.Team, error)
+	PredictChampion(leagueID uint) ([]*dto.TeamPrediction, error)
 	PlayAllMatches(leagueID uint) error
 }
 
@@ -176,9 +178,41 @@ func (s *LeagueServiceImpl) EditMatchResults(updatedMatch *models.Match) error {
 	return nil
 }
 
-func (s *LeagueServiceImpl) PredictChampion(leagueID uint) (models.Team, error) {
-	//TODO implement me
-	panic("implement me")
+func (s *LeagueServiceImpl) PredictChampion(leagueID uint) ([]*dto.TeamPrediction, error) {
+	league, err := s.leagueRepo.GetLeagueByID(leagueID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !league.IsActive() {
+		return nil, errors.New("league is not active or has ended")
+	}
+
+	if league.CurrentWeek < 4 {
+		return nil, errors.New("league did not reach the 4th week yet")
+	}
+
+	standings := league.Standings
+	if len(standings) == 0 {
+		return nil, errors.New("no standings found for the league")
+	}
+
+	teams := league.Teams
+	if len(teams) != 4 {
+		return nil, errors.New("league must have 4 teams")
+	}
+
+	teamStandings, err := s.combineTeamsAndStandings(teams, standings)
+	if err != nil {
+		return nil, err
+	}
+
+	predictions, err := s.calculateWinProbabilities(teamStandings)
+	if err != nil {
+		return nil, err
+	}
+
+	return predictions, nil
 }
 
 func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
@@ -187,6 +221,90 @@ func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
 }
 
 // Below are helper functions for simulating matches and calculating scores
+
+func (s *LeagueServiceImpl) combineTeamsAndStandings(teams []models.Team, standings []models.Standing) ([]teamStanding, error) {
+	if len(standings) != 4 {
+		return nil, errors.New("4 standings must be present for the league")
+	}
+
+	var teamStandings []teamStanding
+
+	// Combine teams with their standings O(1) since each array is guaranteed to have 4 elements
+	for _, standing := range standings {
+		// search teams array match their id
+		for _, team := range teams {
+			if team.ID == standing.TeamID {
+				teamStandings = append(teamStandings, teamStanding{Team: team, Standing: standing})
+			}
+		}
+	}
+
+	return teamStandings, nil
+}
+
+func (s *LeagueServiceImpl) calculateWinProbabilities(teamStandings []teamStanding) ([]*dto.TeamPrediction, error) {
+	// Calculate total points, attack strength, and defense strength for all teams
+	totalPoints, totalAttackStrength, totalDefenseStrength := s.calculateTotals(teamStandings)
+
+	// Calculate win probabilities
+	var predictions []*dto.TeamPrediction
+	for _, currentTeamStanding := range teamStandings {
+		team := currentTeamStanding.Team
+		standing := currentTeamStanding.Standing
+
+		pointsFactor := float64(standing.Points) / float64(totalPoints)
+		attackFactor := float64(team.AttackStrength) / float64(totalAttackStrength)
+		defenseFactor := float64(team.DefenseStrength) / float64(totalDefenseStrength)
+
+		// Combine factors
+		score := pointsFactor*0.5 + attackFactor*0.3 + defenseFactor*0.2
+
+		predictions = append(predictions, &dto.TeamPrediction{
+			TeamID:         team.ID,
+			TeamName:       team.Name,
+			WinProbability: score,
+		})
+	}
+
+	// Normalize probabilities to sum up to 1
+	s.normalizeProbabilities(predictions)
+
+	// Sort predictions by win probability
+	sort.Slice(predictions, func(i, j int) bool {
+		return predictions[i].WinProbability > predictions[j].WinProbability
+	})
+
+	return predictions, nil
+}
+
+func (s *LeagueServiceImpl) calculateTotals(teamStandings []teamStanding) (totalPoints, totalAttackStrength, totalDefenseStrength int) {
+	for _, currentTeamStanding := range teamStandings {
+		standing := currentTeamStanding.Standing
+		team := currentTeamStanding.Team
+
+		totalPoints += standing.Points
+		totalAttackStrength += team.AttackStrength
+		totalDefenseStrength += team.DefenseStrength
+	}
+	return
+}
+
+func (s *LeagueServiceImpl) normalizeProbabilities(predictions []*dto.TeamPrediction) {
+	totalScore := 0.0
+	for _, prediction := range predictions {
+		totalScore += prediction.WinProbability
+	}
+
+	for i := range predictions {
+		predictions[i].WinProbability /= totalScore
+	}
+}
+
+// Custom object to store teams with their standings
+type teamStanding struct {
+	models.Team
+	models.Standing
+}
 
 // playMatches simulates the matches for the current week
 func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, error) {
