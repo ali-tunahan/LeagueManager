@@ -17,7 +17,7 @@ type LeagueService interface {
 	RemoveTeamFromLeague(leagueID, teamID uint) error
 	AdvanceWeek(leagueID uint) error
 	ViewMatchResults(leagueID uint) ([]*models.Match, error)
-	EditMatchResults(leagueID, matchID uint, updatedMatch *models.Match) error
+	EditMatchResults(updatedMatch *models.Match) error
 	PredictChampion(leagueID uint) (models.Team, error)
 	PlayAllMatches(leagueID uint) error
 }
@@ -136,6 +136,8 @@ func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
 	panic("implement me")
 }
 
+// Below are helper methods for simulating matches and updating standings
+
 // playMatches simulates the matches for the current week
 func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, error) {
 	var matches []models.Match
@@ -180,8 +182,6 @@ func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, 
 	return matches, nil
 }
 
-// Below are helper methods for simulating matches and updating standings
-
 // ViewMatchResults returns the match results for the current week
 func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, error) {
 	league, err := s.leagueRepo.GetLeagueByID(leagueID)
@@ -201,15 +201,37 @@ func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, er
 	return matches, nil
 }
 
-func (s *LeagueServiceImpl) EditMatchResults(leagueID, matchID uint, updatedMatch *models.Match) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (s *LeagueServiceImpl) PredictChampion(leagueID uint) (models.Team, error) {
 	//TODO implement me
 	panic("implement me")
 }
+
+// EditMatchResults allows the user to edit the match results and update the standings accordingly
+func (s *LeagueServiceImpl) EditMatchResults(updatedMatch *models.Match) error {
+	// Retrieve the existing match
+	matchID := updatedMatch.ID
+	existingMatch, err := s.matchRepo.GetMatchByID(matchID)
+	if err != nil {
+		return err
+	}
+
+	// Update the match result
+	existingMatch.HomeTeamScore = updatedMatch.HomeTeamScore
+	existingMatch.AwayTeamScore = updatedMatch.AwayTeamScore
+
+	if err := s.matchRepo.UpdateMatch(existingMatch); err != nil {
+		return err
+	}
+
+	// Adjust standings
+	if err := s.updateTeamStandings(updatedMatch.LeagueID, existingMatch, updatedMatch); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Below are helper functions for simulating matches and calculating scores
 
 // simulateMatch simulates the result of a match based on teams' strengths
 func (s *LeagueServiceImpl) simulateMatch(homeTeam, awayTeam models.Team) (int, int) {
@@ -225,41 +247,42 @@ func (s *LeagueServiceImpl) simulateMatch(homeTeam, awayTeam models.Team) (int, 
 	return homeScore, awayScore
 }
 
-// calculateScore calculates the score for a team based on its attack strength and the opponent's defense strength
-func (s *LeagueServiceImpl) calculateScore(attack, defense int) int {
-	baseScore := rand.Intn(3) // Random base score between 0 and 2
-	attackFactor := rand.Float64() * float64(attack) / 100
-	defenseFactor := rand.Float64() * float64(defense) / 100
-
-	score := baseScore + int(attackFactor*10) - int(defenseFactor*5)
-	if score < 0 {
-		score = 0
-	}
-
-	return score
-}
-
 // saveMatchResult saves the match result and updates the standings
 func (s *LeagueServiceImpl) saveMatchResult(match *models.Match) error {
 	if err := s.matchRepo.CreateMatch(match); err != nil {
 		return err
 	}
 
-	// Update standings for home team
-	if err := s.updateStandings(match.LeagueID, match.HomeTeamID, match.HomeTeamScore, match.AwayTeamScore); err != nil {
-		return err
+	return s.updateTeamStandings(match.LeagueID, nil, match)
+}
+
+// updateTeamStandings updates the standings based on old and new match results for both home and away teams
+func (s *LeagueServiceImpl) updateTeamStandings(leagueID uint, oldMatch, newMatch *models.Match) error {
+	// Revert old match results if oldMatch is not nil
+	if oldMatch != nil {
+		if err := s.adjustStandings(leagueID, oldMatch.HomeTeamID, oldMatch.HomeTeamScore, oldMatch.AwayTeamScore, true); err != nil {
+			return err
+		}
+		if err := s.adjustStandings(leagueID, oldMatch.AwayTeamID, oldMatch.AwayTeamScore, oldMatch.HomeTeamScore, true); err != nil {
+			return err
+		}
 	}
 
-	// Update standings for away team
-	if err := s.updateStandings(match.LeagueID, match.AwayTeamID, match.AwayTeamScore, match.HomeTeamScore); err != nil {
-		return err
+	// Apply new match results
+	if newMatch != nil {
+		if err := s.adjustStandings(leagueID, newMatch.HomeTeamID, newMatch.HomeTeamScore, newMatch.AwayTeamScore, false); err != nil {
+			return err
+		}
+		if err := s.adjustStandings(leagueID, newMatch.AwayTeamID, newMatch.AwayTeamScore, newMatch.HomeTeamScore, false); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-// updateStandings updates the standings based on match results
-func (s *LeagueServiceImpl) updateStandings(leagueID, teamID uint, teamScore, opponentScore int) error {
+// adjustStandings adjusts the standings for a team based on match results
+func (s *LeagueServiceImpl) adjustStandings(leagueID, teamID uint, teamScore, opponentScore int, isRevert bool) error {
 	standings, err := s.standingRepo.GetStandingByTeam(leagueID, teamID)
 	if err != nil {
 		// Create new standings if not exists
@@ -275,16 +298,34 @@ func (s *LeagueServiceImpl) updateStandings(leagueID, teamID uint, teamScore, op
 		}
 	}
 
-	standings.GoalDifference += teamScore - opponentScore
+	// Revert old match result if needed
+	if isRevert {
+		standings.GoalDifference -= teamScore - opponentScore
+		standings.Played--
 
-	if teamScore > opponentScore {
-		standings.Wins++
-		standings.Points += 3
-	} else if teamScore == opponentScore {
-		standings.Draws++
-		standings.Points++
+		if teamScore > opponentScore {
+			standings.Wins--
+			standings.Points -= 3
+		} else if teamScore == opponentScore {
+			standings.Draws--
+			standings.Points--
+		} else {
+			standings.Losses--
+		}
 	} else {
-		standings.Losses++
+		// Apply new match result
+		standings.GoalDifference += teamScore - opponentScore
+		standings.Played++
+
+		if teamScore > opponentScore {
+			standings.Wins++
+			standings.Points += 3
+		} else if teamScore == opponentScore {
+			standings.Draws++
+			standings.Points++
+		} else {
+			standings.Losses++
+		}
 	}
 
 	// Standing is newly created if err is not nil
@@ -292,5 +333,18 @@ func (s *LeagueServiceImpl) updateStandings(leagueID, teamID uint, teamScore, op
 		return s.standingRepo.CreateStanding(standings)
 	}
 	return s.standingRepo.UpdateStanding(standings)
+}
 
+// calculateScore calculates the score for a team based on its attack strength and the opponent's defense strength
+func (s *LeagueServiceImpl) calculateScore(attack, defense int) int {
+	baseScore := rand.Intn(3) // Random base score between 0 and 2
+	attackFactor := rand.Float64() * float64(attack) / 100
+	defenseFactor := rand.Float64() * float64(defense) / 100
+
+	score := baseScore + int(attackFactor*10) - int(defenseFactor*5)
+	if score < 0 {
+		score = 0
+	}
+
+	return score
 }
