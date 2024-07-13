@@ -207,8 +207,28 @@ func (s *LeagueServiceImpl) PredictChampion(leagueID uint) ([]*dto.TeamPredictio
 }
 
 func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
-	//TODO implement me
-	panic("implement me")
+	league, err := s.leagueRepo.GetLeagueByID(leagueID)
+	if err != nil {
+		return err
+	}
+
+	if !league.IsActive() {
+		return errors.New("league is not active or has ended")
+	}
+
+	if len(league.Teams) != 4 {
+		return errors.New("league must have exactly 4 teams to play matches")
+	}
+
+	for league.CurrentWeek < 38 { // TODO refactor
+		league, err = s.advanceLeague(league)
+		if err != nil {
+			return err
+		}
+		league.CurrentWeek++
+	}
+
+	return s.leagueRepo.UpdateLeague(league)
 }
 
 // Below are helper functions for simulating matches and calculating scores
