@@ -4,18 +4,23 @@ import (
 	"LeagueManager/internal/application/services"
 	"LeagueManager/internal/domain/models"
 	"LeagueManager/internal/domain/repositories"
+	"database/sql"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"testing"
 )
 
-func setupLeagueServiceTest() (services.LeagueService, services.TeamService) {
+func setupLeagueServiceTest() (*gorm.DB, services.LeagueService, services.TeamService) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect to database")
 	}
-	db.AutoMigrate(&models.Team{}, &models.League{}, &models.Match{}, &models.Standing{})
+	err = db.AutoMigrate(&models.Team{}, &models.League{}, &models.Match{}, &models.Standing{})
+	if err != nil {
+		panic("failed to connect to migrate database")
+	}
 
 	teamRepo := repositories.NewTeamRepository(db)
 	leagueRepo := repositories.NewLeagueRepository(db)
@@ -25,7 +30,7 @@ func setupLeagueServiceTest() (services.LeagueService, services.TeamService) {
 	leagueService := services.NewLeagueService(leagueRepo, teamRepo, matchRepo, standingRepo)
 	teamService := services.NewTeamService(teamRepo, leagueRepo)
 
-	return leagueService, teamService
+	return db, leagueService, teamService
 }
 
 func createTestTeamsForLeague(teamService services.TeamService) {
@@ -37,17 +42,30 @@ func createTestTeamsForLeague(teamService services.TeamService) {
 	}
 
 	for _, team := range teams {
-		teamService.CreateTeam(&team)
+		err := teamService.CreateTeam(&team)
+		if err != nil {
+			panic("failed to create test teams")
+		}
 	}
 }
 
 func createTestLeagueForService(leagueService services.LeagueService, teamService services.TeamService) *models.League {
-	teams, _ := teamService.GetAllTeams()
+	createTestTeamsForLeague(teamService) // Ensure teams are created first
+
+	teams, err := teamService.GetAllTeams()
+	if err != nil {
+		panic(fmt.Sprint("failed to retrieve test teams", " error is ", err, " retrieved length is ", len(teams)))
+	}
+
+	// if not 4 teams panic
+	if len(teams) != 4 {
+		panic("more than 4 teams created")
+	}
 
 	var teamStructs []models.Team
 	// Cast each team to a Team struct
-	for i, team := range teams {
-		teamStructs[i] = *team
+	for _, team := range teams {
+		teamStructs = append(teamStructs, *team)
 	}
 
 	league := &models.League{
@@ -55,24 +73,33 @@ func createTestLeagueForService(leagueService services.LeagueService, teamServic
 		Teams: teamStructs,
 	}
 
-	err := leagueService.CreateLeague(league)
+	err = leagueService.CreateLeague(league)
 	if err != nil {
-		return nil
+		panic("failed to create test league")
 	}
 	return league
 }
 
 func TestCreateLeague(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
+
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
 
 	createTestTeamsForLeague(teamService)
 	teams, err := teamService.GetAllTeams()
 	assert.NoError(t, err)
+	assert.Equal(t, 4, len(teams))
 
 	var teamStructs []models.Team
 	// Cast each team to a Team struct
-	for i, team := range teams {
-		teamStructs[i] = *team
+	for _, team := range teams {
+		teamStructs = append(teamStructs, *team)
 	}
 
 	league := &models.League{
@@ -88,32 +115,57 @@ func TestCreateLeague(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, league.Name, createdLeague.Name)
 	assert.Equal(t, len(teams), len(createdLeague.Teams))
+
 }
 
 func TestAdvanceWeek(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
 
-	err := leagueService.AdvanceWeek(league.ID)
+	err := leagueService.StartLeague(league.ID)
 	assert.NoError(t, err)
 
 	updatedLeague, err := leagueService.GetLeagueByID(league.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, updatedLeague.CurrentWeek)
 
+	err = leagueService.AdvanceWeek(league.ID)
+	assert.NoError(t, err)
+
+	updatedLeague, err = leagueService.GetLeagueByID(league.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, updatedLeague.CurrentWeek)
+
 	err = leagueService.AdvanceWeek(999) // Non-existent league
 	assert.Error(t, err)
 }
 
 func TestPlayAllMatches(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
 
-	err := leagueService.PlayAllMatches(league.ID)
+	err := leagueService.StartLeague(league.ID)
+	assert.NoError(t, err)
+
+	err = leagueService.PlayAllMatches(league.ID)
 	assert.NoError(t, err)
 
 	updatedLeague, err := leagueService.GetLeagueByID(league.ID)
@@ -122,16 +174,28 @@ func TestPlayAllMatches(t *testing.T) {
 
 	matches, err := leagueService.ViewMatchResults(league.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, 38*2, len(matches)) // Assuming 2 matches per week in a 4 team league
+	assert.Equal(t, 2, len(matches)) // Assuming 2 matches per week
 }
 
 func TestEditMatchResults(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
 
-	leagueService.AdvanceWeek(league.ID)
+	err := leagueService.StartLeague(league.ID)
+	assert.NoError(t, err)
+
+	err = leagueService.AdvanceWeek(league.ID)
+	assert.NoError(t, err)
+
 	matches, err := leagueService.ViewMatchResults(league.ID)
 	assert.NoError(t, err)
 	match := matches[0]
@@ -167,13 +231,24 @@ func TestEditMatchResults(t *testing.T) {
 }
 
 func TestPredictChampion(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
 
+	err := leagueService.StartLeague(league.ID)
+	assert.NoError(t, err)
+
 	for i := 0; i < 4; i++ {
-		leagueService.AdvanceWeek(league.ID)
+		err := leagueService.AdvanceWeek(league.ID)
+		assert.NoError(t, err)
 	}
 
 	predictions, err := leagueService.PredictChampion(league.ID)
@@ -188,10 +263,20 @@ func TestPredictChampion(t *testing.T) {
 }
 
 func TestGetLeagueStandings(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
+
+	err := leagueService.StartLeague(league.ID)
+	assert.NoError(t, err)
 
 	for i := 0; i < 5; i++ {
 		err := leagueService.AdvanceWeek(league.ID)
@@ -204,9 +289,16 @@ func TestGetLeagueStandings(t *testing.T) {
 }
 
 func TestAddTeamToLeague(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
 
 	newTeam := models.Team{Name: "Team E", AttackStrength: 55, DefenseStrength: 60}
@@ -222,10 +314,18 @@ func TestAddTeamToLeague(t *testing.T) {
 }
 
 func TestRemoveTeamFromLeague(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
+	assert.Equal(t, 4, len(league.Teams), "Initial team count should be 4")
 
 	teamToRemove := league.Teams[0]
 	err := leagueService.RemoveTeamFromLeague(league.ID, teamToRemove.ID)
@@ -233,27 +333,57 @@ func TestRemoveTeamFromLeague(t *testing.T) {
 
 	league, err = leagueService.GetLeagueByID(league.ID)
 	assert.NoError(t, err)
+	t.Logf("Remaining teams: %v", league.Teams)
 	assert.Equal(t, 3, len(league.Teams))
 }
 
 func TestDeleteTeam(t *testing.T) {
-	leagueService, teamService := setupLeagueServiceTest()
+	db, leagueService, teamService := setupLeagueServiceTest()
 
-	createTestTeamsForLeague(teamService)
+	sqlDB, _ := db.DB()
+	defer func(sqlDB *sql.DB) {
+		err := sqlDB.Close()
+		if err != nil {
+			panic("failed to close database connection")
+		}
+	}(sqlDB)
+
 	league := createTestLeagueForService(leagueService, teamService)
-	teams, _ := teamService.GetAllTeams()
 
-	leagueService.AddTeamToLeague(league.ID, teams[0].ID)
+	teams := league.Teams
 
-	err := teamService.DeleteTeam(teams[0].ID)
+	assert.Equal(t, 4, len(teams))
+
+	err := leagueService.StartLeague(league.ID)
+	assert.NoError(t, err)
+
+	err = teamService.DeleteTeam(teams[0].ID)
 	assert.Error(t, err) // Should fail as team is part of active league
 
 	for i := 1; i < len(teams); i++ {
-		teamService.DeleteTeam(teams[i].ID)
+		err = teamService.DeleteTeam(teams[i].ID)
+		assert.Error(t, err)
+	}
+
+	err = teamService.CreateTeam(&models.Team{Name: "Team X", AttackStrength: 55, DefenseStrength: 60})
+	assert.NoError(t, err)
+
+	allTeams, _ := teamService.GetAllTeams()
+
+	for i := 0; i < len(allTeams); i++ {
+		err = teamService.DeleteTeam(allTeams[i].ID)
+		if allTeams[i].ID == uint(5) {
+			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err)
+		}
 	}
 
 	remainingTeams, err := teamService.GetAllTeams()
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(remainingTeams))
-	assert.Equal(t, teams[0].ID, remainingTeams[0].ID)
+	assert.Equal(t, 4, len(remainingTeams))
+	if len(remainingTeams) == 0 {
+		t.Error("No teams left")
+		return
+	}
 }

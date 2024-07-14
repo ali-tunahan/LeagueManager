@@ -16,7 +16,7 @@ func ConnectToDB() (*gorm.DB, error) {
 	}
 
 	// Perform migrations
-	if err := db.AutoMigrate(&models.Team{}); err != nil {
+	if err := db.AutoMigrate(&models.Team{}, &models.League{}, &models.Match{}, &models.Standing{}); err != nil {
 		log.Fatalf("Error migrating database: %v", err)
 		return nil, err
 	}

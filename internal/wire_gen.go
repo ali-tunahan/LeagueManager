@@ -26,6 +26,8 @@ func Init() (*config.Initialization, error) {
 	matchRepository := repositories.NewMatchRepository(db)
 	teamService := services.NewTeamService(teamRepository, leagueRepository)
 	teamController := controllers.NewTeamController(teamService)
-	initialization := config.NewInitialization(teamRepository, leagueRepository, standingRepository, matchRepository, teamService, teamController)
+	leagueService := services.NewLeagueService(leagueRepository, teamRepository, matchRepository, standingRepository)
+	leagueController := controllers.NewLeagueController(leagueService, teamService)
+	initialization := config.NewInitialization(teamRepository, leagueRepository, standingRepository, matchRepository, teamService, teamController, leagueService, leagueController)
 	return initialization, nil
 }

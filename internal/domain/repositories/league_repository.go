@@ -28,12 +28,24 @@ func (r *LeagueRepositoryImpl) CreateLeague(league *models.League) error {
 
 func (r *LeagueRepositoryImpl) GetLeagueByID(id uint) (*models.League, error) {
 	var league *models.League
-	err := r.db.Preload("Teams").First(&league, id).Error
+
+	// Include all related entities when a single league is retrieved by ID
+	err := r.db.Preload("Teams").Preload("Matches").Preload("Standings").First(&league, id).Error
 	return league, err
 }
 
 func (r *LeagueRepositoryImpl) UpdateLeague(league *models.League) error {
-	return r.db.Save(&league).Error
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	if err := tx.Save(league).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 func (r *LeagueRepositoryImpl) DeleteLeague(id uint) error {

@@ -14,6 +14,10 @@ type Initialization struct {
 
 	TeamSvc  services.TeamService
 	TeamCtrl *controllers.TeamController
+
+	// Add the LeagueService and LeagueController fields
+	LeagueSvc  services.LeagueService
+	LeagueCtrl *controllers.LeagueController
 }
 
 func NewInitialization(
@@ -23,6 +27,8 @@ func NewInitialization(
 	matchRepo repositories.MatchRepository,
 	teamSvc services.TeamService,
 	teamCtrl *controllers.TeamController,
+	leagueSvc services.LeagueService,
+	leagueCtrl *controllers.LeagueController,
 ) *Initialization {
 	return &Initialization{
 		TeamRepo:     teamRepo,
@@ -31,5 +37,7 @@ func NewInitialization(
 		MatchRepo:    matchRepo,
 		TeamSvc:      teamSvc,
 		TeamCtrl:     teamCtrl,
+		LeagueSvc:    leagueSvc,
+		LeagueCtrl:   leagueCtrl,
 	}
 }

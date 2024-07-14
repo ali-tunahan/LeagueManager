@@ -12,7 +12,7 @@ func TestLeagueRepository(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	err = db.AutoMigrate(&models.League{}, &models.Team{})
+	err = db.AutoMigrate(&models.League{}, &models.Team{}, &models.Match{}, &models.Standing{})
 	assert.NoError(t, err)
 
 	repo := NewLeagueRepository(db)

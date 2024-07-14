@@ -5,6 +5,7 @@ import (
 	"LeagueManager/internal/domain/models"
 	"LeagueManager/internal/domain/repositories"
 	"errors"
+	"fmt"
 	"math/rand"
 	"sort"
 )
@@ -18,6 +19,7 @@ type LeagueService interface {
 	GetLeaguesByTeamID(teamID uint) ([]*models.League, error)
 	AddTeamToLeague(leagueID, teamID uint) error
 	RemoveTeamFromLeague(leagueID, teamID uint) error
+	StartLeague(leagueID uint) error
 	AdvanceWeek(leagueID uint) error
 	ViewMatchResults(leagueID uint) ([]*models.Match, error)
 	EditMatchResults(matchID uint, updatedMatch *models.Match) error
@@ -68,7 +70,7 @@ func (s *LeagueServiceImpl) GetLeaguesByTeamID(teamID uint) ([]*models.League, e
 func (s *LeagueServiceImpl) AddTeamToLeague(leagueID, teamID uint) error {
 	league, err := s.leagueRepo.GetLeagueByID(leagueID)
 	if err != nil {
-		return err
+		return errors.New("error while retrieving the league with id: " + fmt.Sprint(leagueID))
 	}
 
 	if len(league.Teams) >= 4 {
@@ -77,11 +79,16 @@ func (s *LeagueServiceImpl) AddTeamToLeague(leagueID, teamID uint) error {
 
 	team, err := s.teamRepo.GetTeamByID(teamID)
 	if err != nil {
-		return err
+		return errors.New("error while retrieving the team with id: " + fmt.Sprint(teamID))
 	}
 
 	league.Teams = append(league.Teams, *team)
-	return s.leagueRepo.UpdateLeague(league)
+
+	res := s.leagueRepo.UpdateLeague(league)
+	if res != nil {
+		return errors.New("error while updating the league with id: " + fmt.Sprint(leagueID) + "error is" + fmt.Sprint(res))
+	}
+	return res
 }
 
 func (s *LeagueServiceImpl) RemoveTeamFromLeague(leagueID, teamID uint) error {
@@ -90,12 +97,48 @@ func (s *LeagueServiceImpl) RemoveTeamFromLeague(leagueID, teamID uint) error {
 		return err
 	}
 
+	teamFound := false
 	for i, team := range league.Teams {
 		if team.ID == teamID {
 			league.Teams = append(league.Teams[:i], league.Teams[i+1:]...)
+			teamFound = true
 			break
 		}
 	}
+
+	if !teamFound {
+		return fmt.Errorf("team with ID %d not found in league %d", teamID, leagueID)
+	}
+
+	err = s.leagueRepo.UpdateLeague(league)
+	if err != nil {
+		return fmt.Errorf("failed to update league: %w", err)
+	}
+
+	return nil
+}
+
+func (s *LeagueServiceImpl) StartLeague(leagueID uint) error {
+	league, err := s.leagueRepo.GetLeagueByID(leagueID)
+	if err != nil {
+		return err
+	}
+
+	if len(league.Teams) != 4 {
+		return errors.New("league must have exactly 4 teams to start")
+	}
+
+	if league.IsActive() {
+		return errors.New("league is already active")
+	}
+
+	if league.CurrentWeek >= 38 {
+		return errors.New("league has already ended")
+	}
+
+	league.CurrentWeek = 1
+	league.Standings = nil
+	league.Matches = nil
 
 	return s.leagueRepo.UpdateLeague(league)
 }
@@ -107,12 +150,12 @@ func (s *LeagueServiceImpl) AdvanceWeek(leagueID uint) error {
 		return err
 	}
 
-	if league.CurrentWeek > 37 { // TODO write a function inside league entity instead
+	if league.CurrentWeek > 38 { // TODO write a function inside league entity instead
 		return errors.New("league has already ended")
 	}
 
 	if len(league.Teams) != 4 {
-		return errors.New("league must have exactly 4 teams to advance")
+		return errors.New(fmt.Sprint("league must have exactly 4 teams to advance, this league has ", len(league.Teams), " teams"))
 	}
 
 	// Advance the league week
@@ -136,19 +179,22 @@ func (s *LeagueServiceImpl) ViewMatchResults(leagueID uint) ([]*models.Match, er
 		return nil, errors.New("league is not active or has ended")
 	}
 
-	matches, err := s.matchRepo.GetMatchesByWeek(leagueID, league.CurrentWeek)
+	matches, err := s.matchRepo.GetMatchesByWeek(leagueID, league.CurrentWeek-1) // Current week is always ahead by 1
 	if err != nil {
 		return nil, err
 	}
 
 	return matches, nil
 }
-
-// EditMatchResults allows the user to edit the match results and update the standings accordingly
 func (s *LeagueServiceImpl) EditMatchResults(matchID uint, updatedMatch *models.Match) error {
-	// Get the existing match
+	// Retrieve the existing match
 	existingMatch, err := s.matchRepo.GetMatchByID(matchID)
 	if err != nil {
+		return err
+	}
+
+	// Revert the old match results from the standings
+	if err := s.updateTeamStandings(existingMatch.LeagueID, existingMatch, nil); err != nil {
 		return err
 	}
 
@@ -160,8 +206,8 @@ func (s *LeagueServiceImpl) EditMatchResults(matchID uint, updatedMatch *models.
 		return err
 	}
 
-	// Adjust standings
-	if err := s.updateTeamStandings(updatedMatch.LeagueID, existingMatch, updatedMatch); err != nil {
+	// Apply the new match results to the standings
+	if err := s.updateTeamStandings(existingMatch.LeagueID, nil, existingMatch); err != nil {
 		return err
 	}
 
@@ -211,8 +257,12 @@ func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
 		return err
 	}
 
+	if league.CurrentWeek == 0 {
+		return errors.New("the current week is 0, the league has not started yet, please start the league first")
+	}
+
 	if !league.IsActive() {
-		return errors.New("league is not active or has ended")
+		return errors.New(fmt.Sprint("league has ended, current week is: ", league.CurrentWeek))
 	}
 
 	if len(league.Teams) != 4 {
@@ -233,6 +283,10 @@ func (s *LeagueServiceImpl) PlayAllMatches(leagueID uint) error {
 // Below are helper functions for simulating matches and calculating scores
 
 func (s *LeagueServiceImpl) advanceLeague(league *models.League) (*models.League, error) {
+	// check if week is more than or equal 1
+	if league.CurrentWeek < 1 {
+		return nil, errors.New("league week must be greater than or equal to 1")
+	}
 	// Play matches for the current week
 	matches, err := s.playMatches(league)
 	if err != nil {
@@ -355,7 +409,7 @@ func (s *LeagueServiceImpl) playMatches(league *models.League) ([]models.Match, 
 		{{0, 3}, {1, 2}},
 	}
 
-	weekIndex := (league.CurrentWeek - 1) % 3
+	weekIndex := ((league.CurrentWeek - 1) + 3) % 3 // +3 is unnecessary unless it ever becomes negative which is impossible in the current implementation buy may change in the future
 	fixtures := weekFixtures[weekIndex]
 
 	for _, fixture := range fixtures {
@@ -428,10 +482,10 @@ func (s *LeagueServiceImpl) updateTeamStandings(leagueID uint, oldMatch, newMatc
 
 // adjustStandings adjusts the standings for a team based on match results
 func (s *LeagueServiceImpl) adjustStandings(leagueID, teamID uint, teamScore, opponentScore int, isRevert bool) error {
-	standings, err := s.standingRepo.GetStandingByTeam(leagueID, teamID)
+	standing, err := s.standingRepo.GetStandingByTeam(leagueID, teamID)
 	if err != nil {
 		// Create new standings if not exists
-		standings = &models.Standing{
+		standing = &models.Standing{
 			LeagueID:       leagueID,
 			TeamID:         teamID,
 			Points:         0,
@@ -445,39 +499,39 @@ func (s *LeagueServiceImpl) adjustStandings(leagueID, teamID uint, teamScore, op
 
 	// Revert old match result if needed
 	if isRevert {
-		standings.GoalDifference -= teamScore - opponentScore
-		standings.Played--
+		standing.GoalDifference -= teamScore - opponentScore
+		standing.Played--
 
 		if teamScore > opponentScore {
-			standings.Wins--
-			standings.Points -= 3
+			standing.Wins--
+			standing.Points -= 3
 		} else if teamScore == opponentScore {
-			standings.Draws--
-			standings.Points--
+			standing.Draws--
+			standing.Points--
 		} else {
-			standings.Losses--
+			standing.Losses--
 		}
 	} else {
 		// Apply new match result
-		standings.GoalDifference += teamScore - opponentScore
-		standings.Played++
+		standing.GoalDifference += teamScore - opponentScore
+		standing.Played++
 
 		if teamScore > opponentScore {
-			standings.Wins++
-			standings.Points += 3
+			standing.Wins++
+			standing.Points += 3
 		} else if teamScore == opponentScore {
-			standings.Draws++
-			standings.Points++
+			standing.Draws++
+			standing.Points++
 		} else {
-			standings.Losses++
+			standing.Losses++
 		}
 	}
 
 	// Standing is newly created if err is not nil
 	if err != nil {
-		return s.standingRepo.CreateStanding(standings)
+		return s.standingRepo.CreateStanding(standing)
 	}
-	return s.standingRepo.UpdateStanding(standings)
+	return s.standingRepo.UpdateStanding(standing)
 }
 
 // calculateScore calculates the score for a team based on its attack strength and the opponent's defense strength

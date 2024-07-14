@@ -20,6 +20,8 @@ func Init() (*config.Initialization, error) {
 		repositories.NewMatchRepository,
 		services.NewTeamService,
 		controllers.NewTeamController,
+		services.NewLeagueService,
+		controllers.NewLeagueController,
 		config.NewInitialization,
 	)
 	return &config.Initialization{}, nil
