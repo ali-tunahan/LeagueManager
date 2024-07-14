@@ -97,11 +97,10 @@ func (s *LeagueServiceImpl) RemoveTeamFromLeague(leagueID, teamID uint) error {
 		return err
 	}
 
+	// Check if the team is part of the league
 	teamFound := false
-	for i, team := range league.Teams {
+	for _, team := range league.Teams {
 		if team.ID == teamID {
-			// remove team from the array
-			league.Teams = append(league.Teams[:i], league.Teams[i+1:]...)
 			teamFound = true
 			break
 		}
@@ -111,9 +110,10 @@ func (s *LeagueServiceImpl) RemoveTeamFromLeague(leagueID, teamID uint) error {
 		return fmt.Errorf("team with ID %d not found in league %d", teamID, leagueID)
 	}
 
-	err = s.leagueRepo.UpdateLeague(league)
+	// Remove the association between the league and the team
+	err = s.leagueRepo.RemoveTeamFromLeague(leagueID, teamID)
 	if err != nil {
-		return fmt.Errorf("failed to update league: %w", err)
+		return fmt.Errorf("failed to remove team from league: %w", err)
 	}
 
 	return nil

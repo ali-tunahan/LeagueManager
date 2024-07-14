@@ -12,6 +12,7 @@ type LeagueRepository interface {
 	DeleteLeague(id uint) error
 	GetAllLeagues() ([]*models.League, error)
 	GetLeaguesByTeamID(teamID uint) ([]*models.League, error)
+	RemoveTeamFromLeague(leagueID, teamID uint) error
 }
 
 type LeagueRepositoryImpl struct {
@@ -66,4 +67,10 @@ func (r *LeagueRepositoryImpl) GetLeaguesByTeamID(teamID uint) ([]*models.League
 		Where("league_teams.team_id = ?", teamID).
 		Find(&leagues).Error
 	return leagues, err
+}
+
+func (r *LeagueRepositoryImpl) RemoveTeamFromLeague(leagueID, teamID uint) error {
+	league := models.League{Model: gorm.Model{ID: leagueID}}
+	team := models.Team{Model: gorm.Model{ID: teamID}}
+	return r.db.Model(&league).Association("Teams").Delete(&team)
 }
