@@ -30,7 +30,7 @@ func NewLeagueController(leagueService services.LeagueService, teamService servi
 // @Produce json
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/create [post]
+// @Router api/leagues/create [post]
 func (lc *LeagueController) CreateLeague(c *gin.Context) {
 	var league models.League
 	if err := c.ShouldBindJSON(&league); err != nil {
@@ -54,7 +54,7 @@ func (lc *LeagueController) CreateLeague(c *gin.Context) {
 // @Produce json
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/initialize [post]
+// @Router /leagues/initialize [post]
 func (lc *LeagueController) CreateAndInitializeLeague(c *gin.Context) {
 	teams := []models.Team{
 		{Name: "Arsenal", AttackStrength: 85, DefenseStrength: 80},
@@ -129,7 +129,7 @@ func (lc *LeagueController) StartLeague(c *gin.Context) {
 // @Param teamID path int true "Team ID"
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/add-team/{leagueID}/{teamID} [post]
+// @Router api/leagues/add-team/{leagueID}/{teamID} [post]
 func (lc *LeagueController) AddTeamToLeague(c *gin.Context) {
 	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
 	if err != nil {
@@ -160,7 +160,7 @@ func (lc *LeagueController) AddTeamToLeague(c *gin.Context) {
 // @Param teamID path int true "Team ID"
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/remove-team/{leagueID}/{teamID} [post]
+// @Router api/leagues/remove-team/{leagueID}/{teamID} [post]
 func (lc *LeagueController) RemoveTeamFromLeague(c *gin.Context) {
 	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
 	if err != nil {
@@ -190,7 +190,7 @@ func (lc *LeagueController) RemoveTeamFromLeague(c *gin.Context) {
 // @Param leagueID path int true "League ID"
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/advance-week/{leagueID} [post]
+// @Router api/leagues/advance-week/{leagueID} [post]
 func (lc *LeagueController) AdvanceWeek(c *gin.Context) {
 	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
 	if err != nil {
@@ -214,7 +214,7 @@ func (lc *LeagueController) AdvanceWeek(c *gin.Context) {
 // @Param leagueID path int true "League ID"
 // @Success 200 {object} []models.Match
 // @Failure 500 {object} gin.H
-// @Router /league/view-matches/{leagueID} [get]
+// @Router api/leagues/view-matches/{leagueID} [get]
 func (lc *LeagueController) ViewMatchResults(c *gin.Context) {
 	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
 	if err != nil {
@@ -240,7 +240,7 @@ func (lc *LeagueController) ViewMatchResults(c *gin.Context) {
 // @Param match body models.Match true "Updated Match"
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/edit-match/{matchID} [post]
+// @Router api/leagues/edit-match/{matchID} [post]
 func (lc *LeagueController) EditMatchResults(c *gin.Context) {
 	matchID, err := strconv.ParseUint(c.Param("matchID"), 10, 64)
 	if err != nil {
@@ -271,7 +271,7 @@ func (lc *LeagueController) EditMatchResults(c *gin.Context) {
 // @Param leagueID path int true "League ID"
 // @Success 200 {object} []dto.TeamPrediction
 // @Failure 500 {object} gin.H
-// @Router /league/predict-champion/{leagueID} [get]
+// @Router api/leagues/predict-champion/{leagueID} [get]
 func (lc *LeagueController) PredictChampion(c *gin.Context) {
 	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
 	if err != nil {
@@ -296,7 +296,7 @@ func (lc *LeagueController) PredictChampion(c *gin.Context) {
 // @Param leagueID path int true "League ID"
 // @Success 200 {object} gin.H
 // @Failure 500 {object} gin.H
-// @Router /league/play-all-matches/{leagueID} [post]
+// @Router api/leagues/play-all-matches/{leagueID} [post]
 func (lc *LeagueController) PlayAllMatches(c *gin.Context) {
 	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
 	if err != nil {
