@@ -45,29 +45,29 @@ jobs:
       - name: Run tests
         run: go test -race -vet=off ./...
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '^1.22'
-
-      - name: Install dependencies
-        run: go mod tidy
-
-      - name: Build
-        run: go build -v -o bin/main ./cmd/main.go
-
-      - name: Deploy to Heroku
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        run: |
-          git remote add heroku https://git.heroku.com/your-app-name.git
-          echo "web: bin/main" > Procfile
-          git add Procfile
-          git commit -m "Add Procfile for Heroku"
-          git push heroku master -f
+#  deploy:
+#    needs: build
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Set up Go
+#        uses: actions/setup-go@v2
+#        with:
+#          go-version: '^1.22'
+#
+#      - name: Install dependencies
+#        run: go mod tidy
+#
+#      - name: Build
+#        run: go build -v -o bin/main ./cmd/main.go
+#
+#      - name: Deploy to Heroku
+#        env:
+#          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+#        run: |
+#          git remote add heroku https://git.heroku.com/your-app-name.git
+#          echo "web: bin/main" > Procfile
+#          git add Procfile
+#          git commit -m "Add Procfile for Heroku"
+#          git push heroku master -f
