@@ -18,12 +18,15 @@ import (
 
 func setupRouter() *gin.Engine {
 	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	err := db.AutoMigrate(&models.Team{})
+	err := db.AutoMigrate(&models.Team{}, &models.League{})
 	if err != nil {
 		return nil
 	}
+
 	repo := repositories.NewTeamRepository(db)
-	service := services.NewTeamService(repo)
+	repoLeague := repositories.NewLeagueRepository(db)
+
+	service := services.NewTeamService(repo, repoLeague)
 	controller := NewTeamController(service)
 
 	r := gin.Default()

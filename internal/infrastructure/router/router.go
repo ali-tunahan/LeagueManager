@@ -18,6 +18,11 @@ func Init(init *config.Initialization) *gin.Engine {
 		team.GET("/:teamID", init.TeamCtrl.GetTeamByID)
 		team.PUT("/:teamID", init.TeamCtrl.UpdateTeam)
 		team.DELETE("/:teamID", init.TeamCtrl.DeleteTeam)
+
+		// Add the league routes
+		league := api.Group("/leagues")
+		league.POST("/debug", init.LeagueCtrl.CreateAndAdvanceLeague)
+		league.GET("/:leagueID", init.LeagueCtrl.GetLeagueByID)
 	}
 
 	return router
