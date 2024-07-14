@@ -21,8 +21,16 @@ func Init(init *config.Initialization) *gin.Engine {
 
 		// Add the league routes
 		league := api.Group("/leagues")
-		league.POST("/debug", init.LeagueCtrl.CreateAndAdvanceLeague)
-		league.GET("/:leagueID", init.LeagueCtrl.GetLeagueByID)
+		league.POST("/create", init.LeagueCtrl.CreateLeague)
+		league.POST("/initialize", init.LeagueCtrl.CreateAndInitializeLeague)
+		league.POST("/start/:leagueID", init.LeagueCtrl.StartLeague)
+		league.POST("/add-team/:leagueID/:teamID", init.LeagueCtrl.AddTeamToLeague)
+		league.POST("/remove-team/:leagueID/:teamID", init.LeagueCtrl.RemoveTeamFromLeague)
+		league.POST("/advance-week/:leagueID", init.LeagueCtrl.AdvanceWeek)
+		league.GET("/view-matches/:leagueID", init.LeagueCtrl.ViewMatchResults)
+		league.POST("/edit-match/:matchID", init.LeagueCtrl.EditMatchResults)
+		league.GET("/predict-champion/:leagueID", init.LeagueCtrl.PredictChampion)
+		league.POST("/play-all-matches/:leagueID", init.LeagueCtrl.PlayAllMatches)
 	}
 
 	return router
