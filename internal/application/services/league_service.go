@@ -100,6 +100,7 @@ func (s *LeagueServiceImpl) RemoveTeamFromLeague(leagueID, teamID uint) error {
 	teamFound := false
 	for i, team := range league.Teams {
 		if team.ID == teamID {
+			// remove team from the array
 			league.Teams = append(league.Teams[:i], league.Teams[i+1:]...)
 			teamFound = true
 			break

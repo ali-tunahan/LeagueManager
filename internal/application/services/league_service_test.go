@@ -327,8 +327,7 @@ func TestRemoveTeamFromLeague(t *testing.T) {
 	league := createTestLeagueForService(leagueService, teamService)
 	assert.Equal(t, 4, len(league.Teams), "Initial team count should be 4")
 
-	teamToRemove := league.Teams[0]
-	err := leagueService.RemoveTeamFromLeague(league.ID, teamToRemove.ID)
+	err := leagueService.RemoveTeamFromLeague(league.ID, uint(1))
 	assert.NoError(t, err)
 
 	league, err = leagueService.GetLeagueByID(league.ID)
