@@ -95,6 +95,31 @@ func (lc *LeagueController) CreateAndInitializeLeague(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "League created and initialized successfully", "league_id": league.ID})
 }
 
+// StartLeague starts the league by setting up the initial matches
+// @Summary Start the league by setting up the initial matches
+// @Tags League
+// @Accept json
+// @Produce json
+// @Param leagueID path int true "League ID"
+// @Success 200 {object} gin.H
+// @Failure 500 {object} gin.H
+// @Router /leagues/start/{leagueID} [post]
+func (lc *LeagueController) StartLeague(c *gin.Context) {
+	leagueID, err := strconv.ParseUint(c.Param("leagueID"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid league ID"})
+		return
+	}
+
+	err = lc.leagueService.StartLeague(uint(leagueID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start league: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "League started successfully"})
+}
+
 // AddTeamToLeague adds a team to a league
 // @Summary Add a team to a league
 // @Tags League
@@ -173,8 +198,7 @@ func (lc *LeagueController) AdvanceWeek(c *gin.Context) {
 		return
 	}
 
-	err = lc.leagueService.AdvanceWeek(uint(leagueID))
-	if err != nil {
+	if err := lc.leagueService.AdvanceWeek(uint(leagueID)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to advance week: " + err.Error()})
 		return
 	}

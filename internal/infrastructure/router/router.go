@@ -23,6 +23,7 @@ func Init(init *config.Initialization) *gin.Engine {
 		league := api.Group("/leagues")
 		league.POST("/create", init.LeagueCtrl.CreateLeague)
 		league.POST("/initialize", init.LeagueCtrl.CreateAndInitializeLeague)
+		league.POST("/start/:leagueID", init.LeagueCtrl.StartLeague)
 		league.POST("/add-team/:leagueID/:teamID", init.LeagueCtrl.AddTeamToLeague)
 		league.POST("/remove-team/:leagueID/:teamID", init.LeagueCtrl.RemoveTeamFromLeague)
 		league.POST("/advance-week/:leagueID", init.LeagueCtrl.AdvanceWeek)
